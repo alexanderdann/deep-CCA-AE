@@ -20,8 +20,9 @@ def train(hidden_layers, ae_layers, shared_dim, data, max_epochs, log_path, mode
               f'{len(hidden_layers)} layers',
               f'{hidden_layers[0]} hidden nodes',
               f'{ae_layers[0]} ae nodes',
-              f'shared dim {shared_dim}', 
-              f'lambda {str(lambda_rec)}',
+              f'shared dim {shared_dim}',
+              f'reg-lambda {str(lambda_reg)}', 
+              f'rec-lambda {str(lambda_rec)}',
               f'activation {activation}']
     
     writer = create_grid_writer(root_dir=log_path, params=params)
@@ -138,7 +139,8 @@ num_folds = 5
 
 num_layers = [2]
 shared_dims = [5, 10]
-lambdas = [1e-2, 1e-3, 1e-4]
+lambdas_rec = [1e-4, 1e-5, 1e-6]
+lambdas_reg = [1e-3, 1e-4]
 hidden_dims = [256, 512]
 ae_num_layers = [1, 2]
 activation_functions = ['sigmoid']
@@ -147,12 +149,13 @@ HP_NUM_LAYERS = hp.HParam('number of layers', hp.Discrete(num_layers))
 HP_HIDDEN_DIMENSION = hp.HParam('hidden dimension', hp.Discrete(hidden_dims))
 HP_AE_LAYERS = hp.HParam('number of ae layers', hp.Discrete(ae_num_layers))
 HP_SHARED_DIMENSION = hp.HParam('shared dimension', hp.Discrete(shared_dims))
-HP_LAMBDA = hp.HParam('lambda', hp.Discrete(lambdas))
+HP_LAMBDA_REC = hp.HParam('rec-lambda', hp.Discrete(lambdas_rec))
+HP_LAMBDA_REG = hp.HParam('reg-lambda', hp.Discrete(lambdas_reg))
 HP_ACTIVATION = hp.HParam('activation function', hp.Discrete(activation_functions))
 
 METRIC_ACCURACY = 'Accuracy'
 
-hyperparameters = [HP_NUM_LAYERS, HP_HIDDEN_DIMENSION, HP_AE_LAYERS, HP_SHARED_DIMENSION, HP_LAMBDA, HP_ACTIVATION]
+hyperparameters = [HP_NUM_LAYERS, HP_HIDDEN_DIMENSION, HP_AE_LAYERS, HP_SHARED_DIMENSION, HP_LAMBDA_REC, HP_LAMBDA_REG, HP_ACTIVATION]
 hp_metric = [hp.Metric(METRIC_ACCURACY, display_name=f'Mean SVM accuracy over {num_folds}-folds')]
 
 with tf.summary.create_file_writer(LOGROOT).as_default():
@@ -172,7 +175,8 @@ def start_grid_search(hparams):
                             shared_dim=hparams[HP_SHARED_DIMENSION],
                             activation=hparams[HP_ACTIVATION],
                             data=[eeg_data[fold_idx], meg_data[fold_idx]],
-                            lambda_rec=hparams[HP_LAMBDA],
+			    lambda_reg=hparams[HP_LAMBDA_REG],
+                            lambda_rec=hparams[HP_LAMBDA_REC],
                             max_epochs=5000, 
                             log_path=LOGPATH, model_path=MODELSPATH, 
                             batch_size=None, 
@@ -198,15 +202,17 @@ for num_layers_idx, num_layers in enumerate(HP_NUM_LAYERS.domain.values, 0):
     for hdim_idx, hdim in enumerate(HP_HIDDEN_DIMENSION.domain.values, 0):
         for ae_idx, ae_num_layers in enumerate(HP_AE_LAYERS.domain.values, 0):
             for sdim_idx, sdim in enumerate(HP_SHARED_DIMENSION.domain.values, 0):
-                for lreg_idx, lreg in enumerate(HP_LAMBDA.domain.values, 0):
-                    for afunc_idx, afunc in enumerate(HP_ACTIVATION.domain.values, 0):
+                for lrec_idx, lrec in enumerate(HP_LAMBDA_REC.domain.values, 0):
+                    for lreg_idx, lreg in enumerate(HP_LAMBDA_REG.domain.values, 0):
+                    	for afunc_idx, afunc in enumerate(HP_ACTIVATION.domain.values, 0):
 
                             hparams = {
                                 HP_NUM_LAYERS: num_layers,
                                 HP_HIDDEN_DIMENSION: hdim,
                                 HP_AE_LAYERS: ae_num_layers,
                                 HP_SHARED_DIMENSION: sdim,
-                                HP_LAMBDA: lreg,
+                                HP_LAMBDA_REC: lrec,
+                                HP_LAMBDA_REG: lreg,
                                 HP_ACTIVATION: afunc
                             }
 
