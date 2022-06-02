@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import pandas as pd
 import scipy.io
 from sklearn.utils import gen_batches
 from sklearn.model_selection import StratifiedKFold
@@ -80,6 +81,44 @@ def _split_data(eeg_data, meg_data, labels):
                 full_data_meg.append(data_dict)
         
     return full_data_eeg, full_data_meg
+
+
+def load_mlsp_data():
+    labels = pd.read_csv('mlsp-2014-mri/Train/train_labels.csv').to_numpy()[:, 1]
+    labeled_FNC = pd.read_csv('mlsp-2014-mri/Train/train_FNC.csv').to_numpy()[:, 1:]
+    labeled_SBM = pd.read_csv('mlsp-2014-mri/Train/train_SBM.csv').to_numpy()[:, 1:]
+    
+    unlabeled_FNC = pd.read_csv('mlsp-2014-mri/Test/test_FNC.csv').to_numpy()[:, 1:]
+    unlabeled_SBM = pd.read_csv('mlsp-2014-mri/Test/test_SBM.csv').to_numpy()[:, 1:]
+    
+    
+    data_FNC = list()
+    data_SBM = list()
+    
+    for train_idx, tmp_idx in StratifiedKFold(n_splits=4).split(np.zeros(len(labels)), labels):
+        for val_idx, test_idx in StratifiedKFold(n_splits=2).split(np.zeros(len(labels[tmp_idx])), labels[tmp_idx]):
+            for modality, data in [('FNC', labeled_FNC), ('SBM', labeled_SBM)]:
+                
+                X_train, y_train = data[train_idx], labels[train_idx]
+                X_test, y_test = data[tmp_idx][test_idx], labels[tmp_idx][test_idx]
+                X_val, y_val = data[tmp_idx][val_idx], labels[tmp_idx][val_idx]
+
+                if modality == 'FNC':
+                    data_dict = {'unlabeled': {'data': unlabeled_FNC.T, 'labels': None},
+                                 'train': {'data': X_train.T, 'labels': y_train},
+                                 'validation': {'data': X_val.T, 'labels': y_val},
+                                 'test': {'data': X_test.T, 'labels': y_test}}
+                    data_FNC.append(data_dict)
+
+                elif modality == 'SBM':
+                    data_dict = {'unlabeled': {'data': unlabeled_SBM.T, 'labels': None},
+                                 'train': {'data': X_train.T, 'labels': y_train},
+                                 'validation': {'data': X_val.T, 'labels': y_val},
+                                 'test': {'data': X_test.T, 'labels': y_test}}
+                    data_SBM.append(data_dict)
+        
+        
+    return data_FNC, data_SBM, labels
 
 
 def load_data(artefact_removal=True):

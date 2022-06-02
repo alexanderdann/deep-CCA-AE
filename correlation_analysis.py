@@ -4,9 +4,12 @@ import numpy as np
 import time
 
 
-def CCA(view1, view2, r1=0, r2=0):
+def CCA(view1, view2, r1=0, r2=0, shared_dim=None):
     V1 = tf.cast(view1, dtype=tf.float32)
     V2 = tf.cast(view2, dtype=tf.float32)
+    
+    if shared_dim is None:
+        shared_dim = np.amin([V1.shape[1], V2.shape[1]])
 
     assert V1.shape[0] == V2.shape[0]
     M = tf.constant(V1.shape[0], dtype=tf.float32)
@@ -25,17 +28,18 @@ def CCA(view1, view2, r1=0, r2=0):
 
     Sigma11_root_inv = tf.linalg.sqrtm(tf.linalg.inv(Sigma11))
     Sigma22_root_inv = tf.linalg.sqrtm(tf.linalg.inv(Sigma22))
-    Sigma22_root_inv_T = tf.transpose(Sigma22_root_inv)
 
-    C = tf.linalg.matmul(tf.linalg.matmul(Sigma11_root_inv, Sigma12), Sigma22_root_inv_T)
-    D, U, V = tf.linalg.svd(C, full_matrices=True)
+    C = tf.linalg.matmul(tf.linalg.matmul(Sigma11_root_inv, Sigma12), Sigma22_root_inv)
+    D, U, V = tf.linalg.svd(C)
+    
 
-    A = tf.matmul(tf.transpose(U), Sigma11_root_inv)
-    B = tf.matmul(tf.transpose(V), Sigma22_root_inv)
+    A = tf.matmul(tf.transpose(U)[:shared_dim], Sigma11_root_inv)
+    B = tf.matmul(tf.transpose(V)[:shared_dim], Sigma22_root_inv)
 
     epsilon = tf.matmul(A, tf.transpose(V1_bar))
     omega = tf.matmul(B, tf.transpose(V2_bar))
 
+    assert (A.shape[0] == B.shape[0]) and (A.shape[0] == shared_dim), print('Shared dimension bigger then dimension of data.')    
     return A, B, epsilon, omega, D
 
 
